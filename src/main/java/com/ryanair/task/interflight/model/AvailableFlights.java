@@ -13,7 +13,7 @@ import java.util.Objects;
 @Getter
 @Setter
 public class AvailableFlights {
-    private Integer month;
+    private int month;
     private List<DayFlights> days;
 
     @Override

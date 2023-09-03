@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Objects;
 
 @AllArgsConstructor
@@ -14,8 +16,8 @@ import java.util.Objects;
 public class Flight {
     private String carrierCode;
     private String number;
-    private String departureTime;
-    private String arrivalTime;
+    private LocalTime departureTime;
+    private LocalTime arrivalTime;
 
     @Override
     public boolean equals(Object o) {
@@ -27,5 +29,13 @@ public class Flight {
     @Override
     public int hashCode() {
         return Objects.hash(carrierCode, number, departureTime, arrivalTime);
+    }
+
+    public LocalDateTime getDepartureDateTime(int year, int month, int day) {
+        return LocalDateTime.of(year, month, day, this.departureTime.getHour(), this.departureTime.getMinute());
+    }
+
+    public LocalDateTime getArrivalDateTime(int year, int month, int day) {
+        return LocalDateTime.of(year, month, day, this.arrivalTime.getHour(), this.arrivalTime.getMinute());
     }
 }

@@ -13,7 +13,7 @@ import java.util.Objects;
 @Getter
 @Setter
 public class DayFlights {
-    private Integer day;
+    private int day;
     private List<Flight> flights;
 
     @Override
