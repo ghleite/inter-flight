@@ -38,7 +38,7 @@ public class InterconnectionsController {
         try {
             List<Interconnection> interconnections = interconnectionsService.findInterconnections(departure, arrival, departureDateTime, arrivalDateTime);
             if(interconnections.isEmpty()){
-                return new ResponseEntity<>("There is no flight available to your research!", HttpStatus.NOT_FOUND);
+                return new ResponseEntity<>("There is no flight available for your research!", HttpStatus.NOT_FOUND);
             }
             return new ResponseEntity<>(interconnections, HttpStatus.OK);
         } catch (Exception e) {

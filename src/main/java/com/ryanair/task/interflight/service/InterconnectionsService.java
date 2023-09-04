@@ -8,13 +8,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 @Service
 public class InterconnectionsService implements DefaultInterconnectionsService {
 
     private static final int ZERO_STOPS = 0;
+
+    private static final int ONE_STOPS = 1;
     static Logger log = Logger.getLogger(InterconnectionsService.class.getName());
 
     @Autowired
@@ -49,12 +54,15 @@ public class InterconnectionsService implements DefaultInterconnectionsService {
                                                  LocalDateTime arrivalDateTime) {
         List<Interconnection> interconnectionList = new ArrayList<>();
 
-        for (Route route : directAndIndirectRoutes) {
-            if (this.isDirectRoute(route, departure, arrival)) {
+        for (int i = 0; i < directAndIndirectRoutes.size(); i++) {
+            if (this.isDirectRoute(directAndIndirectRoutes.get(i), departure, arrival)) {
                 interconnectionList.addAll(Objects
-                        .requireNonNull(this.buildDirectFlights(route, departureDateTime, arrivalDateTime)));
+                        .requireNonNull(this.buildDirectFlights(directAndIndirectRoutes.get(i), departureDateTime, arrivalDateTime)));
             } else {
-                // TODO - function to build indirect flights
+                if (departure.equals(directAndIndirectRoutes.get(i).getAirportFrom()))
+                    interconnectionList.addAll(Objects
+                            .requireNonNull(this.buildInterconnectedFlights(directAndIndirectRoutes.get(i),
+                                    directAndIndirectRoutes.get(i + 1), departureDateTime, arrivalDateTime)));
             }
         }
 
@@ -90,32 +98,73 @@ public class InterconnectionsService implements DefaultInterconnectionsService {
         for (DayFlights dayFlights : filteredAvailableFlights.getDays()) {
             for (Flight flight : dayFlights.getFlights()) {
                 if (flight.getDepartureDateTime(departureYear, departureMonth, dayFlights.getDay()).isAfter(departureDateTime) &&
-                        flight.getArrivalDateTime(arrivalYear, arrivalMonth, dayFlights.getDay()).isBefore(arrivalDateTime))
+                        flight.getArrivalDateTime(arrivalYear, arrivalMonth, dayFlights.getDay()).isBefore(arrivalDateTime)) {
+                    Leg leg = buildLegObject(route.getAirportFrom(), route.getAirportTo(),
+                            flight.getDepartureDateTime(departureYear, departureMonth, dayFlights.getDay()),
+                            flight.getArrivalDateTime(arrivalYear, arrivalMonth, dayFlights.getDay()));
                     directFlightsList.add(
-                            buildInterconnectionObject(ZERO_STOPS, route.getAirportFrom(), route.getAirportTo(),
-                                    flight.getDepartureDateTime(departureYear, departureMonth, dayFlights.getDay()),
-                                    flight.getArrivalDateTime(arrivalYear, arrivalMonth, dayFlights.getDay()))
+                            buildInterconnectionObject(ZERO_STOPS, Collections.singletonList(leg))
                     );
+                }
             }
         }
 
         return directFlightsList;
     }
 
-    private Interconnection buildInterconnectionObject(int stops, String airportFrom, String airportTo,
-                                                       LocalDateTime departureTime, LocalDateTime arrivalTime) {
+    private List<Interconnection> buildInterconnectedFlights(Route routeDeparture, Route routeArrival,
+                                                             LocalDateTime departureDateTime,
+                                                             LocalDateTime arrivalDateTime) {
+        List<Interconnection> interconnectedFlightsList = new ArrayList<>();
+
+        List<Interconnection> firstFlights = buildDirectFlights(routeDeparture, departureDateTime, arrivalDateTime);
+        List<Interconnection> secondFlights = buildDirectFlights(routeArrival, departureDateTime, arrivalDateTime);
+
+        if (firstFlights.isEmpty() || secondFlights.isEmpty())
+            return interconnectedFlightsList;
+
+        for (Interconnection firstFlight : firstFlights) {
+            for (Interconnection secondFlight : secondFlights) {
+                if (secondFlight.getLegs().get(0).getDepartureDateTime().isAfter(
+                        firstFlight.getLegs().get(0).getArrivalDateTime().plusHours(2)
+                )) {
+                    interconnectedFlightsList.add(buildInterconnectionObject(firstFlight, secondFlight));
+                }
+            }
+        }
+
+        return interconnectedFlightsList;
+    }
+
+    private Interconnection buildInterconnectionObject(int stops, List<Leg> legs) {
         Interconnection interconnection = new Interconnection();
         interconnection.setStops(stops);
+        interconnection.setLegs(legs);
 
-        Leg leg = new Leg.Builder()
+        return interconnection;
+    }
+
+    private Interconnection buildInterconnectionObject(Interconnection firstFlight, Interconnection secondFlight) {
+        List<Leg> legs = new ArrayList<>();
+        Leg firstFlightLeg = firstFlight.getLegs().get(0);
+        Leg secondFlightLeg = secondFlight.getLegs().get(0);
+
+        legs.add(buildLegObject(firstFlightLeg.getDepartureAirport(), firstFlightLeg.getArrivalAirport(),
+                firstFlightLeg.getDepartureDateTime(), firstFlightLeg.getArrivalDateTime()));
+        legs.add(buildLegObject(secondFlightLeg.getDepartureAirport(), secondFlightLeg.getArrivalAirport(),
+                secondFlightLeg.getDepartureDateTime(), secondFlightLeg.getArrivalDateTime()));
+
+        return buildInterconnectionObject(ONE_STOPS, legs);
+    }
+
+    public Leg buildLegObject(String airportFrom, String airportTo,
+                              LocalDateTime departureTime, LocalDateTime arrivalTime) {
+        return new Leg.Builder()
                 .withDepartureAirport(airportFrom)
                 .withArrivalAirport(airportTo)
                 .withDepartureDateTime(departureTime)
                 .withArrivalDateTime(arrivalTime)
                 .build();
-        interconnection.setLegs(Collections.singletonList(leg));
-
-        return interconnection;
     }
 
     private boolean isDirectRoute(Route route, String departure, String arrival) {
